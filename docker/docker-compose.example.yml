@@ -1,0 +1,64 @@
+version: '2'
+volumes:
+  docker-db:
+    external: true
+services:
+  mailer:
+    container_name: docker-mailer
+    image: sj26/mailcatcher
+    ports:
+      - 11001:1080
+  database:
+    container_name: docker-database
+    image: mysql:8.0.0
+    environment:
+      - MYSQL_ROOT_PASSWORD=rahasia
+      - MYSQL_DATABASE=docker_database
+    ports:
+      - 11002:3306
+    volumes:
+      - docker-db:/var/lib/mysql
+  app-job:
+    container_name: docker-job
+    build:
+      context: ../
+      dockerfile: config/local/docker/job/Dockerfile
+    image: docker_app_job_img
+    volumes:
+      - /path/to/source/volumes/laravel-app:/usr/share/nginx/html
+    links:
+      - database:database
+      - mailer:mailer
+    restart: always
+  app-fpm:
+    container_name: docker-webapp-fpm
+    build:
+      context: ../
+      dockerfile: config/local/docker/fpm/Dockerfile
+    image: docker_app_fpm_img
+    volumes:
+      - /path/to/source/volumes/laravel-app:/usr/share/nginx/html
+    links:
+      - database:database
+      - mailer:mailer
+    environment:
+      - LAN_ADDR=192.168.22.101
+  app-nginx:
+    container_name: docker-webapp-nginx
+    build:
+      context: ../
+      dockerfile: config/local/docker/nginx/Dockerfile
+    image: docker_app_nginx_img
+    ports:
+      - 11003:80
+    volumes:
+      - /path/to/source/volumes/laravel-app:/usr/share/nginx/html
+    links:
+      - app-fpm:app-fpm
+  phpmyadmin:
+    container_name: docker-phpmyadmin
+    image: phpmyadmin/phpmyadmin
+    ports:
+      - 11004:80
+    links:
+      - database:db
